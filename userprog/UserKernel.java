@@ -3,11 +3,34 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import java.util.LinkedList;
 
 /**
  * A kernel that can support multiple user processes.
  */
 public class UserKernel extends ThreadedKernel {
+	
+	private static Lock fLock;
+	
+	private static LinkedList<Integer> Frames;
+	
+	//When thread stops using frames
+	public static void deAllocateFrame(int address){
+		fLock.acquire();
+		Frames.add(address);
+		fLock.release();
+		
+	}
+	//using frames, lose access the the physical frame address
+	public static int UseFrame(){
+		Lib.assertTrue(!Frames.isEmpty());
+		
+		fLock.acquire();
+		int frame = Frames.removeLast();
+		fLock.release();
+		
+		return frame;
+	}
     /**
      * Allocate a new user kernel.
      */
@@ -21,8 +44,15 @@ public class UserKernel extends ThreadedKernel {
      */
     public void initialize(String[] args) {
 	super.initialize(args);
-
+	
+	//
+	fLock = new Lock();
+	Frames = new LinkedList<Integer>();
 	console = new SynchConsole(Machine.console());
+	//add every physical frame to the linked list
+	for (int i = 0; i < Machine.processor().getNumPhysPages(); i++){
+		Frames.add(i);
+	}
 	
 	Machine.processor().setExceptionHandler(new Runnable() {
 		public void run() { exceptionHandler(); }
